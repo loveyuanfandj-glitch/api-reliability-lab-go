@@ -23,8 +23,32 @@ flowchart LR
 
 The in-process stores and dependency are intentional. They keep the portfolio
 demo deterministic and make the reliability logic inspectable without hiding
-it behind infrastructure. Production deployments would replace these stores
-with durable, shared components while preserving the same boundaries.
+it behind infrastructure. The separate product runtime implements the durable
+counterpart with PostgreSQL, Redis coordination, and a transactional webhook
+outbox while preserving the same tenant and idempotency boundaries.
+
+## Product runtime topology
+
+```mermaid
+flowchart LR
+    C[REST client] --> API[Product API]
+    S[Stripe-style webhook] --> API
+    H[Shopify-style webhook] --> API
+    API --> R[(Redis)]
+    API --> P[(PostgreSQL)]
+    P --> Q[Transactional outbox]
+    W[Background workers] -->|lease + SKIP LOCKED| Q
+    W -->|signed HTTP| D[Customer receiver]
+    D -->|failure| W
+    W -->|retry or dead letter| Q
+```
+
+PostgreSQL is the correctness boundary: one transaction writes the domain
+event, order, and outbound delivery, and a tenant/idempotency unique constraint
+protects against duplicates even if Redis is unavailable. Redis prevents
+duplicated work across replicas on the normal path. Workers can run on multiple
+instances because they claim rows with `FOR UPDATE SKIP LOCKED`; an expired
+processing lease makes abandoned work eligible again.
 
 ## Order request path
 
@@ -104,10 +128,11 @@ The API has no container-level write requirement. Compose marks it
 `no-new-privileges`, exposes readiness as its health check, and starts
 Prometheus only after the service is ready.
 
-## Production evolution
+## Remaining production evolution
 
-A production version would require an external transactional idempotency/order
-store, a durable event log, distributed rate-limit coordination, authenticated
-administrative endpoints, encrypted secret distribution, alert routing, and a
-tested backup/restore plan. Those changes are explicit evolution points, not
-claims made by this lab.
+The product runtime supplies transactional storage, shared idempotency
+coordination, a durable outbox, signed callbacks, and authenticated tenant
+inspection. A customer deployment would still add managed secret rotation,
+role-based administration and audit logs, migration leadership, SLO alert
+routing, network policy, per-tenant commerce credentials, and tested database
+backup/restore procedures. Those boundaries are documented rather than hidden.

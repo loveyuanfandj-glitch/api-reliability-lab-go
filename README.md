@@ -10,6 +10,11 @@ Northstar Tickets is a fictional reservation API built as a hands-on portfolio p
 
 **Why this matters to a client:** the repository demonstrates the engineering work behind stabilizing payment, booking, order, webhook, and third-party API integrations—without depending on a proprietary platform or a slide-only architecture.
 
+The repository now has two deliberately separate runtimes:
+
+- the **Reliability Lab** on port `8080`, a zero-dependency fault-injection environment for fast visual review;
+- the **Product Runtime** on port `58081`, a deployable PostgreSQL/Redis service with transactional outbox delivery, signed webhooks, retries, dead letters, and Stripe/Shopify-style sandbox adapters.
+
 ## See the system recover
 
 ### Healthy control center
@@ -63,6 +68,25 @@ flowchart LR
 
 The reliability policies live behind explicit boundaries rather than being scattered across handlers. See [the architecture notes](docs/ARCHITECTURE.md) and [ADR-001](docs/ADR-001-reliability-boundaries.md) for the request path and rationale.
 
+### Product runtime
+
+```mermaid
+flowchart LR
+    Client[API client] -->|API key + idempotency key| Product[Go product API]
+    Stripe[Stripe-style sandbox webhook] -->|timestamped HMAC| Product
+    Shopify[Shopify-style sandbox webhook] -->|base64 HMAC| Product
+    Product --> Redis[(Redis coordination)]
+    Product -->|one transaction| Postgres[(PostgreSQL)]
+    Postgres --> Orders[Orders + events]
+    Postgres --> Outbox[Webhook outbox]
+    Worker[Background worker] -->|claim with SKIP LOCKED| Outbox
+    Worker -->|signed delivery| Receiver[Client webhook]
+    Receiver -->|failure| Worker
+    Worker -->|backoff or dead letter| Outbox
+```
+
+The order, event, and outgoing notification are committed atomically. Redis suppresses duplicate work across replicas, while PostgreSQL's tenant/idempotency unique constraint remains the correctness boundary if Redis is unavailable. See the [product architecture and runbook](docs/PRODUCT_RUNTIME.md).
+
 ## Quick start
 
 ### Run with Go
@@ -92,6 +116,19 @@ docker compose ps
 ```
 
 This starts the API, Prometheus, and a provisioned Grafana dashboard. Shut down the stack with `make down`; monitoring volumes are preserved.
+
+### Run the durable product runtime
+
+Requires Docker with Compose v2:
+
+```bash
+make product-up
+make product-demo
+```
+
+This starts PostgreSQL, Redis, the product API, and a local webhook receiver that deliberately rejects its first two attempts. The demo proves that the first request creates one order, an identical retry returns the same order, and the signed webhook eventually succeeds after bounded retry. Product data is stored in named volumes; `make product-down` stops services without deleting it.
+
+The sample API keys and secrets in `compose.product.yaml` are local-only fixtures. A real deployment must inject rotated secrets through its platform secret manager.
 
 ## Create an idempotent order
 
@@ -165,6 +202,9 @@ make idempotency           # concurrent duplicate suppression
 make dependency-recovery   # circuit opening and recovery
 make rate-limit            # deliberate noisy-tenant shedding
 make websocket-replay      # ordered reconnect gap recovery
+
+make product-integration   # real PostgreSQL/Redis transaction and failover tests
+make product-demo          # durable idempotency + signed webhook retry proof
 ```
 
 Generate a machine-readable acceptance report against the running lab:
@@ -176,6 +216,8 @@ go run ./cmd/replay \
 ```
 
 A captured example is available at [`artifacts/reports/replay-report.json`](artifacts/reports/replay-report.json). It records scenario evidence rather than presenting environment-specific timings as a universal benchmark.
+
+The product path has a separate [validation report](artifacts/reports/product-runtime-validation.md) recording the real PostgreSQL/Redis assertions, signed retry result, container build, and local tool versions used for the run.
 
 This repository intentionally does **not** publish a universal throughput or latency claim. Results depend on the commit, machine, container runtime, and scenario parameters. To produce evidence that another engineer can audit, record:
 
@@ -200,14 +242,19 @@ After `make up`:
 
 Metrics cover HTTP outcomes and latency, order results, dependency calls, duplicates suppressed, rate-limit rejection, and circuit state. Tenant IDs, API keys, order IDs, and idempotency keys are deliberately excluded from metric labels to avoid unbounded cardinality. The [operator runbook](docs/RUNBOOK.md) provides triage and recovery playbooks.
 
+The product runtime exposes liveness at `:58081/healthz`, dependency readiness at `:58081/readyz`, and low-cardinality metrics at `:58081/metrics`. Authorized operators can inspect deliveries through `GET /v1/webhook-deliveries?status=dead_letter` and explicitly replay a dead letter through `POST /v1/webhook-deliveries/{id}/retry`.
+
 ## Repository map
 
 ```text
 cmd/server/                    service entry point and graceful shutdown
 cmd/replay/                    machine-readable acceptance report runner
+cmd/product-server/            PostgreSQL/Redis product runtime
+cmd/webhook-sink/              signed local receiver with deterministic failures
 internal/app/                  order workflow and reliability composition
 internal/domain/               synthetic order and event contracts
 internal/httpapi/              REST, WebSocket, auth, limits, and telemetry
+internal/product/              durable orders, Redis coordination, outbox, integrations
 internal/reliability/          idempotency, retry, circuit breaker, rate limit
 internal/store/                in-memory orders and bounded event replay
 internal/telemetry/            Prometheus metric definitions
@@ -216,6 +263,7 @@ web/                           zero-build control center
 tests/load/                    k6 acceptance and load scenarios
 deployments/                   Prometheus and Grafana provisioning
 scripts/demo.sh                narrated duplicate/failure/recovery demo
+scripts/product-demo.sh        durable order and signed webhook acceptance demo
 artifacts/                     portfolio screenshots and captured evidence
 docs/                          specification, architecture, ADR, and runbook
 .github/workflows/             formatting, race, build, and asset validation
@@ -223,11 +271,14 @@ docs/                          specification, architecture, ADR, and runbook
 
 ## Design tradeoffs
 
-- **Local clarity over fake distributed durability.** Orders, idempotency records, limits, breaker state, and replay events are in memory so the core policies remain inspectable and the lab runs on a laptop. Restarting loses state; multiple replicas would require shared durable coordination.
+- **Two runtimes, two honest purposes.** The visual lab keeps in-memory state so fault policies remain easy to inspect. The product runtime uses PostgreSQL and Redis where restart safety and multi-replica coordination matter. Neither mode pretends to be the other.
+- **Durable correctness does not depend solely on Redis.** Redis avoids duplicate work on the fast path. PostgreSQL owns the final `(tenant_id, idempotency_key)` uniqueness rule, so a coordination outage degrades efficiency and readiness without allowing duplicate orders.
+- **Transactional outbox over best-effort callbacks.** Order, event, and delivery records commit together. Workers claim due rows with `FOR UPDATE SKIP LOCKED`, recover expired processing leases, sign the exact stored payload, apply bounded exponential backoff, and retain exhausted work as a dead letter.
 - **Bounded replay, not an event platform.** The application retains 500 synthetic events. A cursor older than the buffer requires REST reconciliation in a production design.
-- **Simple demo identity.** Two static API keys demonstrate tenant isolation. Production identity would require secret distribution, rotation, authorization, and audit controls.
+- **Simple reference identity.** Static API-key mappings demonstrate tenant isolation. Production identity still requires a secret manager, rotation, role-based authorization, and an audit trail.
 - **Safe local operations, not a public control plane.** Fault and reset endpoints are available only in demo mode. Grafana is anonymous and read-only for local use; neither configuration belongs on an internet-facing deployment.
-- **Explicit migration seams.** A real transaction system would move order/idempotency state to a transactional store, use an outbox or durable event log, coordinate distributed limits, and add SLO-based alert routing and backup/restore procedures.
+- **Adapter examples, not live commerce credentials.** Stripe- and Shopify-shaped endpoints verify their real HMAC formats but consume synthetic payloads and make no external payment or store calls.
+- **Explicit next production boundaries.** A customer deployment would add managed backups, migration locking, per-tenant integration secrets, alert routing, network policy, audit logging, and load-derived capacity limits.
 
 ## Clean-room and provenance
 

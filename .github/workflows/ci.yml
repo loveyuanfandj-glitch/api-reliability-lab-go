@@ -16,6 +16,29 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: northstar_test
+          POSTGRES_USER: northstar
+          POSTGRES_PASSWORD: northstar-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U northstar -d northstar_test"
+          --health-interval 3s
+          --health-timeout 2s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s
+          --health-timeout 2s
+          --health-retries 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,8 +63,14 @@ jobs:
       - name: Test with race detector
         run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Build executable
-        run: go build ./cmd/server ./cmd/replay
+      - name: Test product runtime with PostgreSQL and Redis
+        env:
+          PRODUCT_TEST_DATABASE_URL: postgres://northstar:northstar-test@127.0.0.1:5432/northstar_test?sslmode=disable
+          PRODUCT_TEST_REDIS_URL: redis://127.0.0.1:6379/15
+        run: go test -race -count=1 -run 'TestProductRuntimeEndToEnd|TestPostgresFallbackWithoutRedis' ./internal/product
+
+      - name: Build executables
+        run: go build ./cmd/server ./cmd/replay ./cmd/product-server ./cmd/webhook-sink
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -58,10 +87,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Compose model
-        run: docker compose config -q
+        run: |
+          docker compose config -q
+          docker compose -f compose.product.yaml config -q
 
       - name: Validate Grafana dashboard JSON
         run: jq empty deployments/grafana/dashboards/*.json
 
       - name: Build production container
-        run: docker build --tag northstar-api:${{ github.sha }} .
+        run: |
+          docker build --tag northstar-api:${{ github.sha }} .
+          docker build --file Dockerfile.product --tag northstar-product-api:${{ github.sha }} .

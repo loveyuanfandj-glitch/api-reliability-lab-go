@@ -6,6 +6,8 @@ Northstar is an independently built Go reliability lab for a fictional multi-ten
 
 The deliverable is not only an API implementation. It includes executable acceptance scenarios, fault injection, structured logs, Prometheus metrics, a provisioned Grafana dashboard, an operator runbook, and explicit production migration boundaries. A reviewer can reproduce each result locally instead of trusting an architecture diagram or an unverifiable benchmark.
 
+The repository also includes a separate product runtime. It replaces the demo's process-local state with PostgreSQL and Redis, commits orders and outgoing callbacks through a transactional outbox, verifies Stripe/Shopify-style signatures, and operates retry and dead-letter workflows through authenticated APIs.
+
 ## Problem
 
 Order, booking, payment, and webhook systems commonly encounter four linked failure modes:
@@ -68,13 +70,17 @@ The repository includes:
 | Is overload deliberate and visible? | `make rate-limit` | Requests are either handled or rejected with `429`; rejection counters increase |
 | Can a disconnected client recover its gap? | `make websocket-replay` | Retained sequences after the cursor arrive in order without gaps |
 | Is the Go implementation concurrency-safe under its tests? | `make test-race` | The suite completes under Go's race detector |
+| Does the durable path survive concurrency and receiver failure? | `make product-integration` | Real PostgreSQL/Redis tests create one order, retry a signed callback twice, then deliver it |
+| Does a Redis outage allow duplicate orders? | Product fallback integration test | PostgreSQL returns the original result or rejects a changed fingerprint |
 | Can an operator understand the incident? | `make demo`, Grafana, and `docs/RUNBOOK.md` | Failure state, fast rejection, recovery, and the next diagnostic action are visible |
 
 The project does not claim a context-free requests-per-second or latency number. To make a performance run reviewable, I report the commit, hardware, Docker/runtime configuration, k6 scenario parameters, complete output, and dashboard window. Correctness checks are stable; performance results remain tied to the stated environment.
 
 ## Design judgment and limits
 
-The lab deliberately uses in-process storage and a synthetic dependency. This keeps the mechanisms understandable and the failure scenarios reproducible, but it does not claim distributed durability. A production implementation would move idempotency and business state into a transactional store, publish through an outbox or durable log, coordinate limits across replicas, secure administrative actions, and attach alerts to agreed SLOs.
+The visual lab deliberately uses in-process storage and a synthetic dependency so the failure mechanisms remain understandable. The product runtime demonstrates the next investment: durable business state, cross-instance duplicate coordination, transactional event/outbox persistence, signed callbacks, bounded retry, and explicit dead-letter recovery. PostgreSQL—not Redis—is the final uniqueness boundary, so a coordination outage does not become a duplicate-order incident.
+
+This reference runtime still does not claim to provide a customer's identity system, secret manager, backup policy, tenant-specific commerce credentials, or SLO alert routing. Those are deployment decisions that need the customer's threat model and operating environment.
 
 Naming those limits is part of the deliverable. Reliability work is not complete when a demo succeeds; stakeholders need to know what is guaranteed, what is not, and which condition triggers the next architecture investment.
 

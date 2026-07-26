@@ -1,0 +1,95 @@
+name: northstar-product-runtime
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: northstar
+      POSTGRES_USER: northstar
+      POSTGRES_PASSWORD: northstar-local
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - product-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U northstar -d northstar"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    volumes:
+      - product-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  webhook-sink:
+    build:
+      context: .
+      dockerfile: Dockerfile.product
+    entrypoint: ["/usr/local/bin/northstar-webhook-sink"]
+    environment:
+      SINK_ADDRESS: ":8090"
+      SINK_FAIL_FIRST: "2"
+      OUTBOUND_WEBHOOK_SECRET: "local-outbound-secret"
+    ports:
+      - "127.0.0.1:58090:8090"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8090/healthz"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  product-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.product
+    environment:
+      PRODUCT_ADDRESS: ":8081"
+      DATABASE_URL: "postgres://northstar:northstar-local@postgres:5432/northstar?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
+      PRODUCT_API_KEYS: "tenant-alpha-key=tenant-alpha,tenant-beta-key=tenant-beta"
+      INTEGRATION_TENANT_ID: "tenant-alpha"
+      OUTBOUND_WEBHOOK_URL: "http://webhook-sink:8090/webhook"
+      OUTBOUND_WEBHOOK_SECRET: "local-outbound-secret"
+      STRIPE_WEBHOOK_SECRET: "whsec_local-stripe"
+      SHOPIFY_WEBHOOK_SECRET: "shpss_local-shopify"
+      WEBHOOK_MAX_ATTEMPTS: "5"
+      WEBHOOK_POLL_INTERVAL: "250ms"
+    ports:
+      - "127.0.0.1:58081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      webhook-sink:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8081/readyz"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  product-postgres-data:
+  product-redis-data:
