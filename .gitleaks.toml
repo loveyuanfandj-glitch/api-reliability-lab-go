@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public fictional tenant keys used by the local demo"
+regexes = [
+  '''tenant-(alpha|beta)-key''',
+]

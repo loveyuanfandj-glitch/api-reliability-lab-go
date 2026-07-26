@@ -1,12 +1,12 @@
 
-[1;36m1/5 Waiting for the API[0m
+1/5 Waiting for the API
 API is ready at http://localhost:8080
 
-[1;36m2/5 Proving duplicate suppression with 20 concurrent requests[0m
+2/5 Proving duplicate suppression with 20 concurrent requests
 Successful responses: 20/20
 Unique order IDs: 1 (expected: 1)
 
-[1;36m3/5 Injecting an inventory outage and opening the circuit[0m
+3/5 Injecting an inventory outage and opening the circuit
 outage request 01 -> HTTP 503
 outage request 02 -> HTTP 503
 outage request 03 -> HTTP 503
@@ -21,15 +21,15 @@ outage request 11 -> HTTP 503
 outage request 12 -> HTTP 503
 Later requests should fail fast once the circuit is open.
 
-[1;36m4/5 Restoring the dependency and observing recovery[0m
+4/5 Restoring the dependency and observing recovery
 Waiting 6s for the breaker cooldown...
 Recovery probe -> HTTP 201
 
-[1;36m5/5 Snapshot and observability links[0m
+5/5 Snapshot and observability links
 {
   "service": {
     "status": "operational",
-    "uptime_seconds": 21,
+    "uptime_seconds": 444,
     "version": "1.0.0"
   },
   "dependency": {
@@ -49,218 +49,218 @@ Recovery probe -> HTTP 201
     {
       "sequence": 2,
       "type": "order.confirmed",
-      "order_id": "ord_8e30e6d39fbe48ee8b6af023",
+      "order_id": "ord_ee017dba4ba93d1de4b8c054",
       "tenant_id": "tenant-alpha",
       "status": "confirmed",
-      "at": "2026-07-26T04:03:43.218891Z"
+      "at": "2026-07-26T04:21:27.796049Z"
     },
     {
       "sequence": 1,
       "type": "order.confirmed",
-      "order_id": "ord_0614e3c5e578871cd446a66e",
+      "order_id": "ord_91913f23b7841bb77344fbb4",
       "tenant_id": "tenant-alpha",
       "status": "confirmed",
-      "at": "2026-07-26T04:03:36.310577Z"
+      "at": "2026-07-26T04:21:20.753581Z"
     }
   ],
   "timeseries": [
     {
-      "at": "2026-07-26T04:03:36.310588Z",
+      "at": "2026-07-26T04:21:20.753605Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 37
+    },
+    {
+      "at": "2026-07-26T04:21:20.753775Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 4
+    },
+    {
+      "at": "2026-07-26T04:21:20.753905Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 4
+    },
+    {
+      "at": "2026-07-26T04:21:20.754134Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 5
+    },
+    {
+      "at": "2026-07-26T04:21:20.754155Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 5
+    },
+    {
+      "at": "2026-07-26T04:21:20.756221Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 22
+    },
+    {
+      "at": "2026-07-26T04:21:20.756283Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 22
+    },
+    {
+      "at": "2026-07-26T04:21:20.756297Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 25
+    },
+    {
+      "at": "2026-07-26T04:21:20.75483Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 16
+    },
+    {
+      "at": "2026-07-26T04:21:20.754832Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 6
+    },
+    {
+      "at": "2026-07-26T04:21:20.754832Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 12
+    },
+    {
+      "at": "2026-07-26T04:21:20.76178Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.76594Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.770152Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.772086Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.773006Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.773149Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.77355Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.773628Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:20.774303Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.177527Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 153
+    },
+    {
+      "at": "2026-07-26T04:21:21.370157Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 155
+    },
+    {
+      "at": "2026-07-26T04:21:21.53997Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 150
+    },
+    {
+      "at": "2026-07-26T04:21:21.565195Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.592621Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.610826Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.630108Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.644114Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.659333Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.676446Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.694203Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:21.71146Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:21:27.796114Z",
       "requests": 1,
       "errors": 0,
       "latency_ms": 35
-    },
-    {
-      "at": "2026-07-26T04:03:36.310629Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:36.310635Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 23
-    },
-    {
-      "at": "2026-07-26T04:03:36.310669Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 6
-    },
-    {
-      "at": "2026-07-26T04:03:36.310706Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 25
-    },
-    {
-      "at": "2026-07-26T04:03:36.31075Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 33
-    },
-    {
-      "at": "2026-07-26T04:03:36.310764Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 6
-    },
-    {
-      "at": "2026-07-26T04:03:36.310764Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 13
-    },
-    {
-      "at": "2026-07-26T04:03:36.310771Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 13
-    },
-    {
-      "at": "2026-07-26T04:03:36.310841Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 6
-    },
-    {
-      "at": "2026-07-26T04:03:36.310851Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 12
-    },
-    {
-      "at": "2026-07-26T04:03:36.310855Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 7
-    },
-    {
-      "at": "2026-07-26T04:03:36.310858Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 15
-    },
-    {
-      "at": "2026-07-26T04:03:36.310861Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 33
-    },
-    {
-      "at": "2026-07-26T04:03:36.310641Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 25
-    },
-    {
-      "at": "2026-07-26T04:03:36.310643Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 12
-    },
-    {
-      "at": "2026-07-26T04:03:36.310646Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 24
-    },
-    {
-      "at": "2026-07-26T04:03:36.310904Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 12
-    },
-    {
-      "at": "2026-07-26T04:03:36.310998Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:36.31686Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:36.603418Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 161
-    },
-    {
-      "at": "2026-07-26T04:03:36.762754Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 140
-    },
-    {
-      "at": "2026-07-26T04:03:36.951634Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 162
-    },
-    {
-      "at": "2026-07-26T04:03:36.984277Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.005739Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.02362Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.043985Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.060634Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.078404Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.092672Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.111305Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:37.131402Z",
-      "requests": 1,
-      "errors": 1,
-      "latency_ms": 0
-    },
-    {
-      "at": "2026-07-26T04:03:43.218903Z",
-      "requests": 1,
-      "errors": 0,
-      "latency_ms": 36
     }
   ]
 }
