@@ -101,7 +101,7 @@
       "dependency_mode", "dependency.mode", "inventory.mode", "fault_mode", "mode"
     ], "healthy"));
     var circuit = normalizeCircuit(firstValue(snapshot, [
-      "circuit_state", "circuit.state", "inventory.circuit_state", "breaker.state"
+      "circuit_state", "dependency.circuit_state", "circuit.state", "inventory.circuit_state", "breaker.state"
     ], "closed"));
     var rawSeries = firstValue(snapshot, ["timeseries", "time_series", "metrics.timeseries"], []);
     if (!Array.isArray(rawSeries)) rawSeries = [];
@@ -200,7 +200,12 @@
       var contentType = response.headers.get("content-type") || "";
       var payload = contentType.indexOf("application/json") >= 0 ? await response.json() : await response.text();
       if (!response.ok) {
-        var message = typeof payload === "object" && payload ? payload.error || payload.message : payload;
+        var message = payload;
+        if (typeof payload === "object" && payload) {
+          message = payload.message;
+          if (typeof payload.error === "string") message = payload.error;
+          if (payload.error && typeof payload.error === "object") message = payload.error.message || payload.error.code;
+        }
         throw new Error(message || "Request failed with status " + response.status);
       }
       return payload;
