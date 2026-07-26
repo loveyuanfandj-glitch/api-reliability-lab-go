@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0d1715">
+    <meta name="description" content="A live control center for the Northstar Tickets API reliability lab.">
+    <title>Northstar Reliability Control Center</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to dashboard</a>
+
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Northstar Reliability home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>
+          <strong>NORTHSTAR</strong>
+          <small>RELIABILITY LAB</small>
+        </span>
+      </a>
+      <div class="topbar-meta" aria-label="Environment information">
+        <span class="environment">SYNTHETIC ENV</span>
+        <span class="connection-pill" id="connectionPill" data-state="connecting">
+          <span class="signal-dot" aria-hidden="true"></span>
+          <span id="connectionText">Connecting</span>
+        </span>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="intro" aria-labelledby="pageTitle">
+        <div class="intro-copy">
+          <p class="eyebrow">ORDER API / CONTROL CENTER</p>
+          <h1 id="pageTitle">Break it safely.<br><em>Watch it recover.</em></h1>
+          <p class="lede">A live, clean-room demonstration of idempotency, tenant isolation, bounded retries, and circuit-breaker recovery.</p>
+        </div>
+
+        <div class="system-state" id="systemState" data-state="observing" aria-live="polite">
+          <div class="state-orbit" aria-hidden="true"><span></span></div>
+          <div>
+            <span class="label">SYSTEM STATE</span>
+            <strong id="systemStateText">OBSERVING</strong>
+            <small id="systemStateDetail">Waiting for first snapshot</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-strip" aria-labelledby="faultTitle">
+        <div class="control-heading">
+          <span class="section-index">01</span>
+          <div>
+            <h2 id="faultTitle">Dependency fault injection</h2>
+            <p>Switch the synthetic inventory service while traffic is flowing.</p>
+          </div>
+        </div>
+        <div class="fault-modes" role="group" aria-label="Inventory dependency mode">
+          <button class="mode-button is-active" type="button" data-mode="healthy" aria-pressed="true"><span></span>Healthy</button>
+          <button class="mode-button" type="button" data-mode="slow" aria-pressed="false"><span></span>Slow</button>
+          <button class="mode-button" type="button" data-mode="flaky" aria-pressed="false"><span></span>Flaky</button>
+          <button class="mode-button" type="button" data-mode="unavailable" aria-pressed="false"><span></span>Unavailable</button>
+        </div>
+        <div class="action-set">
+          <label class="tenant-select">
+            <span>Traffic tenant</span>
+            <select id="tenantSelect" aria-label="Traffic tenant">
+              <option value="tenant-alpha-key">Alpha</option>
+              <option value="tenant-beta-key">Beta</option>
+            </select>
+          </label>
+          <button class="button button-primary" type="button" id="createOrderButton">Create order <span aria-hidden="true">↗</span></button>
+          <button class="button" type="button" id="duplicateButton">Prove idempotency</button>
+          <button class="icon-button" type="button" id="resetButton" aria-label="Reset synthetic demo" title="Reset synthetic demo">↺</button>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Reliability signals">
+        <article class="metric-card metric-card-featured">
+          <div class="metric-label"><span>CIRCUIT BREAKER</span><i id="circuitIndicator"></i></div>
+          <div class="metric-value" id="circuitState">—</div>
+          <p id="circuitDetail">Inventory dependency</p>
+          <div class="circuit-track" aria-hidden="true"><span id="circuitTrack"></span></div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label"><span>THROUGHPUT</span><i></i></div>
+          <div class="metric-value"><span id="throughputValue">—</span><small> req/s</small></div>
+          <p><span id="orderCount">0</span> order requests observed</p>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label"><span>DUPLICATES STOPPED</span><i></i></div>
+          <div class="metric-value" id="duplicateValue">—</div>
+          <p>Same key, same reservation</p>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label"><span>ERROR RATE</span><i></i></div>
+          <div class="metric-value"><span id="errorValue">—</span><small>%</small></div>
+          <p id="errorDetail">Across recent requests</p>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel latency-panel" aria-labelledby="latencyTitle">
+          <div class="panel-header">
+            <div>
+              <span class="section-index">02</span>
+              <div>
+                <h2 id="latencyTitle">Request latency</h2>
+                <p>Rolling synthetic percentiles · milliseconds</p>
+              </div>
+            </div>
+            <div class="legend" aria-label="Chart legend">
+              <span><i class="p50"></i>P50 <strong id="p50Value">—</strong></span>
+              <span><i class="p95"></i>P95 <strong id="p95Value">—</strong></span>
+              <span><i class="p99"></i>P99 <strong id="p99Value">—</strong></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="latencyChart" role="img" aria-label="Rolling line chart showing p50, p95, and p99 request latency"></canvas>
+            <div class="chart-scale" aria-hidden="true"><span id="chartMax">500 ms</span><span>0</span></div>
+          </div>
+          <div class="chart-footer">
+            <span>60 seconds ago</span>
+            <div class="chart-event" id="chartEvent"><i></i><span>No fault active</span></div>
+            <span>Now</span>
+          </div>
+        </article>
+
+        <article class="panel timeline-panel" aria-labelledby="timelineTitle">
+          <div class="panel-header compact">
+            <div>
+              <span class="section-index">03</span>
+              <div>
+                <h2 id="timelineTitle">Event timeline</h2>
+                <p>Newest reliability signals</p>
+              </div>
+            </div>
+            <span class="live-label"><i></i>LIVE</span>
+          </div>
+          <ol class="timeline" id="eventTimeline" aria-live="polite">
+            <li class="timeline-empty">Waiting for service events…</li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="architecture-panel" aria-labelledby="architectureTitle">
+        <div class="architecture-copy">
+          <span class="section-index">04</span>
+          <h2 id="architectureTitle">Failure is contained by design.</h2>
+          <p>Each boundary is independently observable, bounded, and recoverable. No employer code or infrastructure is used.</p>
+          <div class="guarantees">
+            <span><i>01</i> Tenant-scoped idempotency</span>
+            <span><i>02</i> Bounded retry + jitter</span>
+            <span><i>03</i> WebSocket sequence replay</span>
+          </div>
+        </div>
+        <div class="architecture-map" aria-label="Architecture flow from tenant request through API edge and reliability core to synthetic inventory">
+          <div class="arch-node tenant-node">
+            <small>MULTI-TENANT</small>
+            <strong>Client traffic</strong>
+            <span>API key · idempotency key</span>
+          </div>
+          <div class="arch-link"><span>REST + WS</span><i></i></div>
+          <div class="arch-node core-node">
+            <small>GO SERVICE</small>
+            <strong>Reliability core</strong>
+            <span>Rate limit · replay · metrics</span>
+          </div>
+          <div class="arch-link"><span>TIMEOUT</span><i></i></div>
+          <div class="arch-node dependency-node" id="dependencyNode" data-mode="healthy">
+            <small>SYNTHETIC DEPENDENCY</small>
+            <strong>Inventory</strong>
+            <span id="dependencyModeLabel">Healthy response</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+    <footer>
+      <p>INDEPENDENT CLEAN-ROOM PROJECT <span>·</span> SYNTHETIC DATA ONLY</p>
+      <p>Northstar Tickets is fictional. Built to make reliability visible.</p>
+    </footer>
+  </body>
+</html>

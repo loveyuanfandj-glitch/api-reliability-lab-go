@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-07-26T04:03:31.358927Z",
+  "target": "http://localhost:8080",
+  "passed": true,
+  "scenarios": [
+    {
+      "name": "concurrent-idempotency",
+      "passed": true,
+      "duration_ms": 39,
+      "evidence": {
+        "replayed_responses": 11,
+        "requests": 12,
+        "unique_order_ids": 1
+      }
+    },
+    {
+      "name": "dependency-recovery",
+      "passed": true,
+      "duration_ms": 4712,
+      "evidence": {
+        "circuit_before_recovery": "open",
+        "outage_statuses": [
+          503,
+          503,
+          503,
+          503
+        ],
+        "recovery_status": 201
+      }
+    },
+    {
+      "name": "websocket-gap-replay",
+      "passed": true,
+      "duration_ms": 76,
+      "evidence": {
+        "disconnected_after_sequence": 3,
+        "expected_sequence": 4,
+        "replayed_order_id": "ord_342c987c884c0989bbd9494d",
+        "replayed_sequence": 4
+      }
+    }
+  ]
+}

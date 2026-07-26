@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.idea/
+.vscode/
+bin/
+coverage.out
+dist/
+tmp/
+artifacts/raw/
+artifacts/video-frames/
+/server
+/replay
+*.log

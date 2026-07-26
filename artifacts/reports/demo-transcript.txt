@@ -1,0 +1,271 @@
+
+[1;36m1/5 Waiting for the API[0m
+API is ready at http://localhost:8080
+
+[1;36m2/5 Proving duplicate suppression with 20 concurrent requests[0m
+Successful responses: 20/20
+Unique order IDs: 1 (expected: 1)
+
+[1;36m3/5 Injecting an inventory outage and opening the circuit[0m
+outage request 01 -> HTTP 503
+outage request 02 -> HTTP 503
+outage request 03 -> HTTP 503
+outage request 04 -> HTTP 503
+outage request 05 -> HTTP 503
+outage request 06 -> HTTP 503
+outage request 07 -> HTTP 503
+outage request 08 -> HTTP 503
+outage request 09 -> HTTP 503
+outage request 10 -> HTTP 503
+outage request 11 -> HTTP 503
+outage request 12 -> HTTP 503
+Later requests should fail fast once the circuit is open.
+
+[1;36m4/5 Restoring the dependency and observing recovery[0m
+Waiting 6s for the breaker cooldown...
+Recovery probe -> HTTP 201
+
+[1;36m5/5 Snapshot and observability links[0m
+{
+  "service": {
+    "status": "operational",
+    "uptime_seconds": 21,
+    "version": "1.0.0"
+  },
+  "dependency": {
+    "mode": "healthy",
+    "circuit_state": "closed",
+    "consecutive_failures": 0
+  },
+  "metrics": {
+    "orders_total": 33,
+    "orders_succeeded": 2,
+    "orders_failed": 12,
+    "duplicates_suppressed": 19,
+    "rate_limited": 0,
+    "dependency_calls": 11
+  },
+  "recent_events": [
+    {
+      "sequence": 2,
+      "type": "order.confirmed",
+      "order_id": "ord_8e30e6d39fbe48ee8b6af023",
+      "tenant_id": "tenant-alpha",
+      "status": "confirmed",
+      "at": "2026-07-26T04:03:43.218891Z"
+    },
+    {
+      "sequence": 1,
+      "type": "order.confirmed",
+      "order_id": "ord_0614e3c5e578871cd446a66e",
+      "tenant_id": "tenant-alpha",
+      "status": "confirmed",
+      "at": "2026-07-26T04:03:36.310577Z"
+    }
+  ],
+  "timeseries": [
+    {
+      "at": "2026-07-26T04:03:36.310588Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 35
+    },
+    {
+      "at": "2026-07-26T04:03:36.310629Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:36.310635Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 23
+    },
+    {
+      "at": "2026-07-26T04:03:36.310669Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 6
+    },
+    {
+      "at": "2026-07-26T04:03:36.310706Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 25
+    },
+    {
+      "at": "2026-07-26T04:03:36.31075Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 33
+    },
+    {
+      "at": "2026-07-26T04:03:36.310764Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 6
+    },
+    {
+      "at": "2026-07-26T04:03:36.310764Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 13
+    },
+    {
+      "at": "2026-07-26T04:03:36.310771Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 13
+    },
+    {
+      "at": "2026-07-26T04:03:36.310841Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 6
+    },
+    {
+      "at": "2026-07-26T04:03:36.310851Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 12
+    },
+    {
+      "at": "2026-07-26T04:03:36.310855Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 7
+    },
+    {
+      "at": "2026-07-26T04:03:36.310858Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 15
+    },
+    {
+      "at": "2026-07-26T04:03:36.310861Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 33
+    },
+    {
+      "at": "2026-07-26T04:03:36.310641Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 25
+    },
+    {
+      "at": "2026-07-26T04:03:36.310643Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 12
+    },
+    {
+      "at": "2026-07-26T04:03:36.310646Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 24
+    },
+    {
+      "at": "2026-07-26T04:03:36.310904Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 12
+    },
+    {
+      "at": "2026-07-26T04:03:36.310998Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:36.31686Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:36.603418Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 161
+    },
+    {
+      "at": "2026-07-26T04:03:36.762754Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 140
+    },
+    {
+      "at": "2026-07-26T04:03:36.951634Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 162
+    },
+    {
+      "at": "2026-07-26T04:03:36.984277Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.005739Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.02362Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.043985Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.060634Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.078404Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.092672Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.111305Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:37.131402Z",
+      "requests": 1,
+      "errors": 1,
+      "latency_ms": 0
+    },
+    {
+      "at": "2026-07-26T04:03:43.218903Z",
+      "requests": 1,
+      "errors": 0,
+      "latency_ms": 36
+    }
+  ]
+}
+
+Grafana:   http://localhost:3000/d/northstar-reliability
+Prometheus: http://localhost:9090/targets
+
+Demo complete: duplicates were suppressed and dependency failure/recovery was observable.
