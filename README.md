@@ -20,6 +20,8 @@ Northstar Tickets is a fictional reservation API built as a hands-on portfolio p
 
 ![Northstar control center showing an unavailable dependency and open circuit](artifacts/screenshots/failure-mode.png)
 
+[Watch the short duplicate-request and dependency-recovery walkthrough](artifacts/video/northstar-reliability-demo.mp4).
+
 The web control center is served by the Go application at <http://localhost:8080/>. Use it to create orders, replay an idempotent request, change the synthetic dependency between `healthy`, `slow`, `flaky`, and `unavailable`, and watch the service state change.
 
 ## Three guarantees, with executable proof
