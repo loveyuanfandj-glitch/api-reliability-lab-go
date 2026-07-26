@@ -17,6 +17,10 @@ scenarios, metrics, and test data were created specifically for this project.
 - RFC 6455: The WebSocket Protocol
 - Prometheus client library documentation
 - k6 documentation
+- PostgreSQL documentation
+- Redis command documentation
+- Public Stripe webhook signature documentation
+- Public Shopify webhook verification documentation
 
 All third-party packages are declared in `go.mod` and retain their own
 licenses.

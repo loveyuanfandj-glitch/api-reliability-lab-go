@@ -1,0 +1,24 @@
+FROM golang:1.25.12-alpine AS build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/northstar-product-api ./cmd/product-server \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/northstar-webhook-sink ./cmd/webhook-sink
+
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S northstar \
+    && adduser -S -G northstar -H -s /sbin/nologin northstar
+
+COPY --from=build --chown=northstar:northstar /out/northstar-product-api /usr/local/bin/northstar-product-api
+COPY --from=build --chown=northstar:northstar /out/northstar-webhook-sink /usr/local/bin/northstar-webhook-sink
+
+USER northstar
+EXPOSE 8081
+
+ENTRYPOINT ["/usr/local/bin/northstar-product-api"]
