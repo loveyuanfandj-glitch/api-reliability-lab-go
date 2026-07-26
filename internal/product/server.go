@@ -212,7 +212,7 @@ func readJSON(request *http.Request, target any) error {
 	if err != nil {
 		return err
 	}
-	return decodeJSON(payload, target)
+	return decodeJSON(payload, target, true)
 }
 
 func readBody(request *http.Request) ([]byte, error) {

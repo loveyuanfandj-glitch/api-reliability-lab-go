@@ -2,6 +2,7 @@ package product
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +26,26 @@ type Config struct {
 }
 
 func LoadConfig() (Config, error) {
+	webhookMaxAttempts, err := envInt("WEBHOOK_MAX_ATTEMPTS", 5)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookPollInterval, err := envDuration("WEBHOOK_POLL_INTERVAL", 250*time.Millisecond)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookLease, err := envDuration("WEBHOOK_LEASE", 30*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookRequestTimeout, err := envDuration("WEBHOOK_REQUEST_TIMEOUT", 5*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	apiKeys, err := parseAPIKeys(os.Getenv("PRODUCT_API_KEYS"))
+	if err != nil {
+		return Config{}, err
+	}
 	config := Config{
 		Address:               envOrDefault("PRODUCT_ADDRESS", ":8081"),
 		DatabaseURL:           os.Getenv("DATABASE_URL"),
@@ -34,12 +55,12 @@ func LoadConfig() (Config, error) {
 		OutboundWebhookSecret: os.Getenv("OUTBOUND_WEBHOOK_SECRET"),
 		StripeWebhookSecret:   os.Getenv("STRIPE_WEBHOOK_SECRET"),
 		ShopifyWebhookSecret:  os.Getenv("SHOPIFY_WEBHOOK_SECRET"),
-		WebhookMaxAttempts:    envInt("WEBHOOK_MAX_ATTEMPTS", 5),
-		WebhookPollInterval:   envDuration("WEBHOOK_POLL_INTERVAL", 250*time.Millisecond),
-		WebhookLease:          envDuration("WEBHOOK_LEASE", 30*time.Second),
-		WebhookRequestTimeout: envDuration("WEBHOOK_REQUEST_TIMEOUT", 5*time.Second),
+		WebhookMaxAttempts:    webhookMaxAttempts,
+		WebhookPollInterval:   webhookPollInterval,
+		WebhookLease:          webhookLease,
+		WebhookRequestTimeout: webhookRequestTimeout,
+		APIKeys:               apiKeys,
 	}
-	config.APIKeys = parseAPIKeys(os.Getenv("PRODUCT_API_KEYS"))
 
 	if config.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
@@ -50,24 +71,46 @@ func LoadConfig() (Config, error) {
 	if len(config.APIKeys) == 0 {
 		return Config{}, fmt.Errorf("PRODUCT_API_KEYS must contain at least one key=tenant mapping")
 	}
-	if config.OutboundWebhookURL != "" && config.OutboundWebhookSecret == "" {
-		return Config{}, fmt.Errorf("OUTBOUND_WEBHOOK_SECRET is required when OUTBOUND_WEBHOOK_URL is set")
+	if config.IntegrationTenantID == "" || len(config.IntegrationTenantID) > 100 {
+		return Config{}, fmt.Errorf("INTEGRATION_TENANT_ID must be between 1 and 100 characters")
 	}
-	if config.WebhookMaxAttempts < 1 {
-		return Config{}, fmt.Errorf("WEBHOOK_MAX_ATTEMPTS must be positive")
+	if config.OutboundWebhookURL != "" {
+		if config.OutboundWebhookSecret == "" {
+			return Config{}, fmt.Errorf("OUTBOUND_WEBHOOK_SECRET is required when OUTBOUND_WEBHOOK_URL is set")
+		}
+		parsedURL, err := url.ParseRequestURI(config.OutboundWebhookURL)
+		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+			return Config{}, fmt.Errorf("OUTBOUND_WEBHOOK_URL must be an absolute HTTP(S) URL")
+		}
+	}
+	if config.WebhookMaxAttempts < 1 || config.WebhookPollInterval <= 0 || config.WebhookLease <= 0 || config.WebhookRequestTimeout <= 0 {
+		return Config{}, fmt.Errorf("webhook attempts and durations must be positive")
+	}
+	if config.WebhookLease <= config.WebhookRequestTimeout {
+		return Config{}, fmt.Errorf("WEBHOOK_LEASE must be longer than WEBHOOK_REQUEST_TIMEOUT")
 	}
 	return config, nil
 }
 
-func parseAPIKeys(value string) map[string]string {
+func parseAPIKeys(value string) (map[string]string, error) {
 	result := make(map[string]string)
 	for entry := range strings.SplitSeq(value, ",") {
-		key, tenant, ok := strings.Cut(strings.TrimSpace(entry), "=")
-		if ok && key != "" && tenant != "" {
-			result[key] = tenant
+		trimmed := strings.TrimSpace(entry)
+		if trimmed == "" {
+			continue
 		}
+		key, tenant, ok := strings.Cut(trimmed, "=")
+		key = strings.TrimSpace(key)
+		tenant = strings.TrimSpace(tenant)
+		if !ok || key == "" || tenant == "" {
+			return nil, fmt.Errorf("PRODUCT_API_KEYS contains an invalid key=tenant mapping")
+		}
+		if _, exists := result[key]; exists {
+			return nil, fmt.Errorf("PRODUCT_API_KEYS contains duplicate key %q", key)
+		}
+		result[key] = tenant
 	}
-	return result
+	return result, nil
 }
 
 func envOrDefault(key, fallback string) string {
@@ -77,18 +120,26 @@ func envOrDefault(key, fallback string) string {
 	return fallback
 }
 
-func envInt(key string, fallback int) int {
-	value, err := strconv.Atoi(os.Getenv(key))
-	if err != nil {
-		return fallback
+func envInt(key string, fallback int) (int, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
 	}
-	return value
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be an integer: %w", key, err)
+	}
+	return value, nil
 }
 
-func envDuration(key string, fallback time.Duration) time.Duration {
-	value, err := time.ParseDuration(os.Getenv(key))
-	if err != nil {
-		return fallback
+func envDuration(key string, fallback time.Duration) (time.Duration, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
 	}
-	return value
+	value, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a duration: %w", key, err)
+	}
+	return value, nil
 }

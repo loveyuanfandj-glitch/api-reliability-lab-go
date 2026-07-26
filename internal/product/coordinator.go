@@ -3,6 +3,7 @@ package product
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -44,8 +45,8 @@ func (c *RedisCoordinator) Ping(ctx context.Context) error {
 }
 
 func (c *RedisCoordinator) Do(ctx context.Context, tenantID, key, fingerprint string, fn func(context.Context) (domain.Order, error)) (domain.Order, bool, error) {
-	resultKey := c.prefix + ":result:" + tenantID + ":" + key
-	lockKey := c.prefix + ":lock:" + tenantID + ":" + key
+	resultKey := coordinationKey(c.prefix, "result", tenantID, key)
+	lockKey := coordinationKey(c.prefix, "lock", tenantID, key)
 	token := randomToken()
 
 	for {
@@ -116,9 +117,18 @@ func (c *RedisCoordinator) loadResult(ctx context.Context, key string) (coordina
 	}
 	var result coordinationResult
 	if err := json.Unmarshal(encoded, &result); err != nil {
-		return coordinationResult{}, false, fmt.Errorf("decode coordination result: %w", err)
+		return coordinationResult{}, false, fmt.Errorf("%w: decode cached result: %v", ErrCoordinationUnavailable, err)
+	}
+	if result.Fingerprint == "" || result.Order.ID == "" {
+		return coordinationResult{}, false, fmt.Errorf("%w: cached result is incomplete", ErrCoordinationUnavailable)
 	}
 	return result, true, nil
+}
+
+func coordinationKey(prefix, kind, tenantID, key string) string {
+	encoded, _ := json.Marshal([2]string{tenantID, key})
+	digest := sha256.Sum256(encoded)
+	return prefix + ":" + kind + ":" + hex.EncodeToString(digest[:])
 }
 
 func (c *RedisCoordinator) release(lockKey, token string) {

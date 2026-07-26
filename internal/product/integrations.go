@@ -31,8 +31,8 @@ func ParseStripeOrder(payload []byte) (IntegrationOrder, error) {
 			} `json:"object"`
 		} `json:"data"`
 	}
-	if err := decodeJSON(payload, &event); err != nil {
-		return IntegrationOrder{}, fmt.Errorf("decode Stripe event: %w", err)
+	if err := decodeJSON(payload, &event, false); err != nil {
+		return IntegrationOrder{}, fmt.Errorf("%w: decode Stripe event: %v", ErrInvalidInput, err)
 	}
 	if event.Type != "checkout.session.completed" {
 		return IntegrationOrder{}, ErrIgnoredEvent
@@ -63,8 +63,8 @@ func ParseShopifyOrder(payload []byte) (IntegrationOrder, error) {
 			Value string `json:"value"`
 		} `json:"note_attributes"`
 	}
-	if err := decodeJSON(payload, &order); err != nil {
-		return IntegrationOrder{}, fmt.Errorf("decode Shopify order: %w", err)
+	if err := decodeJSON(payload, &order, false); err != nil {
+		return IntegrationOrder{}, fmt.Errorf("%w: decode Shopify order: %v", ErrInvalidInput, err)
 	}
 	eventID := ""
 	for _, attribute := range order.NoteAttributes {
@@ -88,10 +88,12 @@ func ParseShopifyOrder(payload []byte) (IntegrationOrder, error) {
 	}, nil
 }
 
-func decodeJSON(payload []byte, target any) error {
+func decodeJSON(payload []byte, target any, strict bool) error {
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.UseNumber()
-	decoder.DisallowUnknownFields()
+	if strict {
+		decoder.DisallowUnknownFields()
+	}
 	if err := decoder.Decode(target); err != nil {
 		return err
 	}

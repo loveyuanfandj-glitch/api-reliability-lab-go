@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -57,11 +58,17 @@ func (w *WebhookWorker) ProcessBatch(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	var group sync.WaitGroup
 	for _, delivery := range deliveries {
-		if err := w.process(ctx, delivery); err != nil {
-			w.logger.Warn("webhook delivery attempt failed", "delivery_id", delivery.ID, "attempt", delivery.Attempts, "error", err)
-		}
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			if err := w.process(ctx, delivery); err != nil {
+				w.logger.Warn("webhook delivery attempt failed", "delivery_id", delivery.ID, "attempt", delivery.Attempts, "error", err)
+			}
+		}()
 	}
+	group.Wait()
 	return len(deliveries), nil
 }
 
@@ -86,6 +93,7 @@ func (w *WebhookWorker) process(ctx context.Context, delivery WebhookDelivery) e
 		body, _ := io.ReadAll(io.LimitReader(response.Body, 512))
 		return w.fail(ctx, delivery, fmt.Errorf("receiver returned %d: %s", response.StatusCode, strings.TrimSpace(string(body))))
 	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 32<<10))
 	if err := w.repository.MarkDeliverySucceeded(ctx, delivery.ID); err != nil {
 		return err
 	}

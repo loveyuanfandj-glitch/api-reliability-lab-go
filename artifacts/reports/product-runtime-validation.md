@@ -37,6 +37,19 @@ The integration assertions verified:
 - Stripe- and Shopify-shaped signed sandbox payloads created orders;
 - an unavailable Redis coordinator fell back to PostgreSQL without allowing duplicate or conflicting writes.
 
+## Post-implementation bug audit
+
+A second review added regression coverage for production-shaped provider payloads and operational edge cases:
+
+- Stripe/Shopify payloads may contain unknown provider fields while the public order API remains strict;
+- malformed but correctly signed provider JSON returns `400`, not an internal `500`;
+- Redis coordination keys hash the tenant/key tuple so delimiter-like values cannot cross tenant boundaries;
+- corrupt Redis result data activates the PostgreSQL fallback instead of returning a cached zero value;
+- worker configuration rejects invalid durations and leases shorter than the HTTP timeout;
+- claimed webhook batches execute concurrently so later jobs do not expire their leases while waiting behind earlier network calls;
+- repeated PostgreSQL integration runs reset only the explicitly configured test tables, preventing stale outbox jobs from making results order-dependent;
+- concurrent Redis-unavailable requests still produce exactly one PostgreSQL order.
+
 ## Condensed container acceptance evidence
 
 The order response below omits run-specific timestamps for readability; IDs and status values are from the captured run.

@@ -43,6 +43,8 @@ sequenceDiagram
 
 If Redis cannot be reached, the API logs and counts a coordination fallback, then attempts the PostgreSQL transaction directly. The database returns the original order for the same fingerprint and `409 Conflict` semantics for a different fingerprint.
 
+Each claimed webhook batch is delivered concurrently, and startup rejects a processing lease that is not longer than the configured HTTP request timeout. This prevents later jobs in a batch from becoming eligible on another instance before their first network attempt begins.
+
 ## Local operation
 
 ```bash

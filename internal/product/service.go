@@ -41,9 +41,9 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID, idempotencyKey, sou
 	if externalID == "" {
 		externalID = input.EventID
 	}
-	if tenantID == "" || len(tenantID) > 100 || idempotencyKey == "" || len(idempotencyKey) > 200 || input.EventID == "" || len(input.EventID) > 200 || input.Quantity < 1 || input.Quantity > 12 {
+	if tenantID == "" || len(tenantID) > 100 || idempotencyKey == "" || len(idempotencyKey) > 200 || source == "" || len(source) > 50 || externalID == "" || len(externalID) > 200 || input.EventID == "" || len(input.EventID) > 200 || input.Quantity < 1 || input.Quantity > 12 {
 		s.recordOrder("invalid", source)
-		return OrderResult{}, fmt.Errorf("%w: tenant, idempotency key and event_id are required and bounded; quantity must be between 1 and 12", ErrInvalidInput)
+		return OrderResult{}, fmt.Errorf("%w: tenant, idempotency key, source, external_id and event_id are required and bounded; quantity must be between 1 and 12", ErrInvalidInput)
 	}
 	fingerprint := requestFingerprint(input, source, externalID)
 	request := CreateOrderRequest{

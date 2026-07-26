@@ -102,3 +102,46 @@ func TestRedisCoordinatorReportsUnavailable(t *testing.T) {
 		t.Fatalf("expected coordination unavailable, got %v", err)
 	}
 }
+
+// TestRedisCoordinatorHashesTenantAndKey validates that delimiter-like input cannot collide across tenant boundaries.
+func TestRedisCoordinatorHashesTenantAndKey(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	coordinator := NewRedisCoordinator(client, "test")
+
+	first, _, err := coordinator.Do(context.Background(), "tenant:a", "b", "fingerprint-1", func(context.Context) (domain.Order, error) {
+		return domain.Order{ID: "ord_1"}, nil
+	})
+	if err != nil {
+		t.Fatalf("store first coordination result: %v", err)
+	}
+	second, replayed, err := coordinator.Do(context.Background(), "tenant", "a:b", "fingerprint-2", func(context.Context) (domain.Order, error) {
+		return domain.Order{ID: "ord_2"}, nil
+	})
+	if err != nil {
+		t.Fatalf("store second coordination result: %v", err)
+	}
+	if replayed || first.ID == second.ID {
+		t.Fatalf("distinct tenant/key pairs collided: first=%+v second=%+v", first, second)
+	}
+}
+
+// TestRedisCoordinatorRejectsCorruptCache validates that malformed shared state triggers the database fallback path.
+func TestRedisCoordinatorRejectsCorruptCache(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	coordinator := NewRedisCoordinator(client, "test")
+	resultKey := coordinationKey("test", "result", "tenant-a", "key-1")
+	if err := client.Set(context.Background(), resultKey, "not-json", time.Hour).Err(); err != nil {
+		t.Fatalf("seed corrupt result: %v", err)
+	}
+
+	_, _, err := coordinator.Do(context.Background(), "tenant-a", "key-1", "fingerprint-1", func(context.Context) (domain.Order, error) {
+		return domain.Order{ID: "ord_1"}, nil
+	})
+	if !errors.Is(err, ErrCoordinationUnavailable) {
+		t.Fatalf("expected coordination fallback error, got %v", err)
+	}
+}

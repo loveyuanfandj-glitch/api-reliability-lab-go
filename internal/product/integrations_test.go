@@ -7,7 +7,7 @@ import (
 
 // TestParseStripeOrder validates supported checkout mapping and ignores unrelated Stripe event types.
 func TestParseStripeOrder(t *testing.T) {
-	payload := []byte(`{"id":"evt_1","type":"checkout.session.completed","data":{"object":{"id":"cs_1","client_reference_id":"show-42","metadata":{"quantity":"3"}}}}`)
+	payload := []byte(`{"id":"evt_1","type":"checkout.session.completed","livemode":false,"data":{"object":{"id":"cs_1","client_reference_id":"show-42","payment_status":"paid","metadata":{"quantity":"3"}}}}`)
 	order, err := ParseStripeOrder(payload)
 	if err != nil {
 		t.Fatalf("parse Stripe order: %v", err)
@@ -22,9 +22,19 @@ func TestParseStripeOrder(t *testing.T) {
 	}
 }
 
+// TestIntegrationParsersClassifyMalformedJSON validates that signed but malformed provider payloads map to client errors rather than internal failures.
+func TestIntegrationParsersClassifyMalformedJSON(t *testing.T) {
+	if _, err := ParseStripeOrder([]byte(`{"id":`)); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected malformed Stripe payload to be invalid input, got %v", err)
+	}
+	if _, err := ParseShopifyOrder([]byte(`{"id":`)); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected malformed Shopify payload to be invalid input, got %v", err)
+	}
+}
+
 // TestParseShopifyOrder validates order identity, event metadata, and quantity aggregation across line items.
 func TestParseShopifyOrder(t *testing.T) {
-	payload := []byte(`{"id":98765,"line_items":[{"quantity":2},{"quantity":1}],"note_attributes":[{"name":"event_id","value":"show-42"}]}`)
+	payload := []byte(`{"id":98765,"currency":"USD","line_items":[{"quantity":2,"title":"Balcony"},{"quantity":1,"title":"Floor"}],"note_attributes":[{"name":"event_id","value":"show-42"}]}`)
 	order, err := ParseShopifyOrder(payload)
 	if err != nil {
 		t.Fatalf("parse Shopify order: %v", err)

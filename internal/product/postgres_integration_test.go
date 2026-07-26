@@ -41,6 +41,7 @@ func TestProductRuntimeEndToEnd(t *testing.T) {
 	if err := repository.Migrate(ctx); err != nil {
 		t.Fatalf("migrate postgres: %v", err)
 	}
+	resetProductTables(t, ctx, repository)
 	redisOptions, err := redis.ParseURL(redisURL)
 	if err != nil {
 		t.Fatalf("parse redis URL: %v", err)
@@ -169,6 +170,13 @@ func TestProductRuntimeEndToEnd(t *testing.T) {
 	if stripeResponse.StatusCode != http.StatusOK {
 		t.Fatalf("expected Stripe webhook success, got %d", stripeResponse.StatusCode)
 	}
+	malformedStripePayload := []byte(`{"id":`)
+	malformedStripeHeaders := map[string]string{"Stripe-Signature": SignOutboundWebhook(malformedStripePayload, config.StripeWebhookSecret, time.Now())}
+	malformedStripeResponse := productRequest(t, server.Client(), http.MethodPost, server.URL+"/v1/integrations/stripe/webhook", malformedStripePayload, "", "", malformedStripeHeaders)
+	defer malformedStripeResponse.Body.Close()
+	if malformedStripeResponse.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected malformed signed Stripe webhook to return 400, got %d", malformedStripeResponse.StatusCode)
+	}
 
 	shopifyID := time.Now().UnixNano()
 	shopifyPayload := []byte(fmt.Sprintf(`{"id":%d,"line_items":[{"quantity":1}],"note_attributes":[{"name":"event_id","value":"show-100"}]}`, shopifyID))
@@ -195,16 +203,50 @@ func TestPostgresFallbackWithoutRedis(t *testing.T) {
 	if err := repository.Migrate(ctx); err != nil {
 		t.Fatalf("migrate postgres: %v", err)
 	}
+	resetProductTables(t, ctx, repository)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	service := NewService(repository, repository, unavailableCoordinator{}, nil, logger, "", 3)
 	key := productID("fallback")
 
-	first, err := service.CreateOrder(ctx, "tenant-fallback", key, "api", "", structOrder("show-fallback", 1))
-	if err != nil || first.Replayed {
-		t.Fatalf("create through fallback: result=%+v err=%v", first, err)
+	results := make(chan OrderResult, 20)
+	errorsFound := make(chan error, 20)
+	var group sync.WaitGroup
+	for range 20 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			result, err := service.CreateOrder(ctx, "tenant-fallback", key, "api", "", structOrder("show-fallback", 1))
+			if err != nil {
+				errorsFound <- err
+				return
+			}
+			results <- result
+		}()
+	}
+	group.Wait()
+	close(results)
+	close(errorsFound)
+	for err := range errorsFound {
+		t.Errorf("concurrent fallback request failed: %v", err)
+	}
+	created := 0
+	orderID := ""
+	for result := range results {
+		if orderID == "" {
+			orderID = result.Order.ID
+		}
+		if result.Order.ID != orderID {
+			t.Fatalf("fallback created multiple orders: first=%s current=%s", orderID, result.Order.ID)
+		}
+		if !result.Replayed {
+			created++
+		}
+	}
+	if created != 1 {
+		t.Fatalf("expected one fallback creator, got %d", created)
 	}
 	second, err := service.CreateOrder(ctx, "tenant-fallback", key, "api", "", structOrder("show-fallback", 1))
-	if err != nil || !second.Replayed || second.Order.ID != first.Order.ID {
+	if err != nil || !second.Replayed || second.Order.ID != orderID {
 		t.Fatalf("replay through fallback: result=%+v err=%v", second, err)
 	}
 	_, err = service.CreateOrder(ctx, "tenant-fallback", key, "api", "", structOrder("show-fallback", 2))
@@ -254,4 +296,12 @@ func shopifySignature(payload []byte, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(payload)
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func resetProductTables(t *testing.T, ctx context.Context, repository *PostgresRepository) {
+	t.Helper()
+	_, err := repository.pool.Exec(ctx, `TRUNCATE product_webhook_deliveries, product_orders, product_events RESTART IDENTITY`)
+	if err != nil {
+		t.Fatalf("reset product integration tables: %v", err)
+	}
 }

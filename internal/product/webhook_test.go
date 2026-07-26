@@ -13,13 +13,14 @@ import (
 
 type webhookRepositoryStub struct {
 	mu         sync.Mutex
+	claimed    []WebhookDelivery
 	succeeded  []string
 	statuses   []DeliveryStatus
 	lastErrors []string
 }
 
 func (r *webhookRepositoryStub) ClaimDeliveries(context.Context, int, time.Duration) ([]WebhookDelivery, error) {
-	return nil, nil
+	return append([]WebhookDelivery(nil), r.claimed...), nil
 }
 
 func (r *webhookRepositoryStub) MarkDeliverySucceeded(_ context.Context, id string) error {
@@ -106,6 +107,45 @@ func TestWebhookWorkerRetriesThenDeadLetters(t *testing.T) {
 	}
 	if len(repository.lastErrors) != 2 || repository.lastErrors[0] == "" {
 		t.Fatal("receiver errors were not retained")
+	}
+}
+
+// TestWebhookWorkerProcessesClaimedBatchConcurrently validates that a batch completes within one lease window instead of serially consuming request timeouts.
+func TestWebhookWorkerProcessesClaimedBatchConcurrently(t *testing.T) {
+	started := make(chan struct{}, 3)
+	release := make(chan struct{})
+	receiver := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		started <- struct{}{}
+		<-release
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	defer receiver.Close()
+	repository := &webhookRepositoryStub{claimed: []WebhookDelivery{
+		{ID: "wh_1", EventType: "order.confirmed", Payload: []byte(`{}`), TargetURL: receiver.URL, Attempts: 1, MaxAttempts: 3},
+		{ID: "wh_2", EventType: "order.confirmed", Payload: []byte(`{}`), TargetURL: receiver.URL, Attempts: 1, MaxAttempts: 3},
+		{ID: "wh_3", EventType: "order.confirmed", Payload: []byte(`{}`), TargetURL: receiver.URL, Attempts: 1, MaxAttempts: 3},
+	}}
+	worker := NewWebhookWorker(repository, receiver.Client(), "secret", time.Minute, time.Second, nil, slog.Default())
+	done := make(chan error, 1)
+	go func() {
+		_, err := worker.ProcessBatch(context.Background())
+		done <- err
+	}()
+
+	for range 3 {
+		select {
+		case <-started:
+		case <-time.After(time.Second):
+			close(release)
+			t.Fatal("claimed deliveries were processed serially")
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("process concurrent batch: %v", err)
+	}
+	if len(repository.succeeded) != 3 {
+		t.Fatalf("expected three successful deliveries, got %d", len(repository.succeeded))
 	}
 }
 
